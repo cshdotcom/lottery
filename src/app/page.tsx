@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AdminNav } from '@/components/admin-nav';
-import { Gift, Settings, Shield, History, Key, User, ChevronRight } from 'lucide-react';
+import { CdkNav } from '@/components/cdk-nav';
+import { Gift, Settings, Shield, History, Key, ChevronRight, Plus } from 'lucide-react';
 
 export default function HomePage() {
   return (
@@ -11,42 +12,39 @@ export default function HomePage() {
         <div className="container flex h-14 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
             <Gift className="h-6 w-6 text-primary" />
-            <span className="font-bold">LINUX DO 抽奖系统</span>
+            <span className="font-bold">抽奖系统</span>
           </Link>
-          <AdminNav />
+          <div className="flex items-center gap-4">
+            <CdkNav />
+            <AdminNav />
+          </div>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            LINUX DO 抽奖管理系统
+            抽奖管理系统
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            公正透明的论坛抽奖工具，支持配置 API 调用精准识别有等级要求的帖子
+            公正透明的论坛抽奖工具，支持CDK兑换码管理
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-2xl">
-                <Gift className="h-8 w-8 text-primary" />
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Gift className="h-6 w-6 text-primary" />
                 抽奖工具
               </CardTitle>
               <CardDescription>为帖子进行公正抽奖</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                输入帖子链接，设置中奖人数，即可快速进行抽奖。支持自定义最后楼层范围。
+                输入帖子链接，系统自动抽取中奖楼层
               </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                <li>自动识别有效参与楼层</li>
-                <li>多重哈希算法确保公正</li>
-                <li>一键复制抽奖结果</li>
-                <li>自动发帖公布结果</li>
-              </ul>
-              <Button asChild className="w-full" size="lg">
+              <Button asChild className="w-full">
                 <Link href="/lottery">
                   开始抽奖
                   <ChevronRight className="ml-2 h-4 w-4" />
@@ -57,42 +55,87 @@ export default function HomePage() {
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-2xl">
-                <Settings className="h-8 w-8 text-primary" />
-                后台管理
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Plus className="h-6 w-6 text-green-600" />
+                创建 CDK
               </CardTitle>
-              <CardDescription>管理API配置和规则</CardDescription>
+              <CardDescription>登录后创建兑换码</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                配置Discourse API连接，管理用户等级规则，设置自动发帖参数。
+                登录后可以创建CDK兑换码，支持批量生成
+              </p>
+              <Button asChild className="w-full" variant="outline">
+                <Link href="/cdk/create">
+                  <Key className="mr-2 h-4 w-4" />
+                  创建CDK
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Key className="h-6 w-6 text-blue-600" />
+                验证 CDK
+              </CardTitle>
+              <CardDescription>检查兑换码有效性</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                输入CDK验证是否有效，查看剩余次数
+              </p>
+              <Button asChild className="w-full" variant="outline">
+                <Link href="/cdk">
+                  验证CDK
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Settings className="h-6 w-6 text-purple-600" />
+                后台管理
+              </CardTitle>
+              <CardDescription>管理配置和CDK</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                配置API、创建抽奖预设、管理CDK
               </p>
               <div className="space-y-2">
-                <Link href="/admin/login" className="block">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Key className="mr-2 h-4 w-4" />
-                    API 配置管理
-                  </Button>
-                </Link>
-                <Link href="/admin/login" className="block">
-                  <Button variant="outline" className="w-full justify-start">
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/admin/login">
                     <Shield className="mr-2 h-4 w-4" />
-                    等级规则管理
-                  </Button>
-                </Link>
-                <Link href="/admin/login" className="block">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Settings className="mr-2 h-4 w-4" />
-                    抽奖预设配置
-                  </Button>
-                </Link>
-                <Link href="/admin/login" className="block">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Key className="mr-2 h-4 w-4" />
-                    CDK兑换码管理
-                  </Button>
-                </Link>
+                    登录后台
+                  </Link>
+                </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <History className="h-6 w-6 text-orange-600" />
+                抽奖记录
+              </CardTitle>
+              <CardDescription>查看历史抽奖</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                查看所有抽奖记录和发帖状态
+              </p>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/admin/lottery-records">
+                  查看记录
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -101,28 +144,28 @@ export default function HomePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <History className="h-6 w-6" />
-                功能特点
+                <Shield className="h-6 w-6" />
+                系统特点
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-3 gap-6">
                 <div>
-                  <h3 className="font-semibold mb-2">🎯 精准识别</h3>
+                  <h3 className="font-semibold mb-2">🎯 公正抽奖</h3>
                   <p className="text-sm text-muted-foreground">
-                    自动识别符合抽奖条件的楼层，支持等级要求配置，过滤无效用户。
+                    多重哈希算法确保每次抽奖结果唯一可验证
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">🔐 公正透明</h3>
+                  <h3 className="font-semibold mb-2">🔑 CDK管理</h3>
                   <p className="text-sm text-muted-foreground">
-                    使用多重哈希算法生成种子，结合帖子信息确保每次抽奖结果唯一可验证。
+                    登录用户可创建兑换码，支持批量生成
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-2">🚀 自动发帖</h3>
                   <p className="text-sm text-muted-foreground">
-                    配置Discourse API后，可自动在论坛发帖公布抽奖结果，无需手动复制粘贴。
+                    在原帖下自动回复公布抽奖结果
                   </p>
                 </div>
               </div>
@@ -131,7 +174,7 @@ export default function HomePage() {
         </div>
 
         <footer className="mt-16 text-center text-sm text-muted-foreground">
-          <p>LINUX DO 抽奖管理系统 v1.0.0</p>
+          <p>抽奖管理系统 v1.0.0</p>
           <p className="mt-1">基于 Next.js + Docker 构建</p>
         </footer>
       </div>

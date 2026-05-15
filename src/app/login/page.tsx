@@ -23,59 +23,54 @@ export default function LoginPage() {
   const [apiConfigId, setApiConfigId] = useState<string>('');
   const [apiConfigs, setApiConfigs] = useState<ApiConfig[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
+  const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
+
+  const redirect = searchParams.get('from') || '/';
 
   useEffect(() => {
-    checkAuth();
     fetchApiConfigs();
   }, []);
-
-  async function checkAuth() {
-    try {
-      const res = await fetch('/api/auth');
-      if (res.ok) {
-        const redirect = searchParams.get('from') || '/';
-        router.push(redirect);
-      }
-    } catch (error) {
-    } finally {
-      setIsChecking(false);
-    }
-  }
 
   async function fetchApiConfigs() {
     try {
       const res = await fetch('/api/admin/api-configs');
       if (res.ok) {
         const data = await res.json();
-        setApiConfigs(data.filter((c: ApiConfig) => c.isActive));
-        if (data.length > 0) {
-          setApiConfigId(data[0].id);
+        const activeConfigs = data.filter((c: ApiConfig) => c.isActive);
+        setApiConfigs(activeConfigs);
+        if (activeConfigs.length > 0) {
+          setApiConfigId(activeConfigs[0].id);
         }
       }
     } catch (error) {
       console.error('Failed to fetch API configs:', error);
+    } finally {
+      setIsLoadingConfigs(false);
     }
   }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    
     if (!username.trim()) {
       toast.error('请输入用户名');
       return;
     }
 
     setIsLoading(true);
+
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), apiConfigId }),
+        body: JSON.stringify({ 
+          username: username.trim(), 
+          apiConfigId: apiConfigId || undefined 
+        }),
       });
 
       if (res.ok) {
         toast.success('登录成功！');
-        const redirect = searchParams.get('from') || '/';
         router.push(redirect);
       } else {
         const data = await res.json();
@@ -88,7 +83,7 @@ export default function LoginPage() {
     }
   }
 
-  if (isChecking) {
+  if (isLoadingConfigs) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -105,16 +100,16 @@ export default function LoginPage() {
               <User className="h-12 w-12 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl">登录抽奖系统</CardTitle>
+          <CardTitle className="text-2xl">论坛账号登录</CardTitle>
           <CardDescription>
-            使用 Discourse 论坛用户名登录
+            使用论坛账号登录以创建CDK
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             {apiConfigs.length > 0 && (
               <div className="space-y-2">
-                <Label htmlFor="apiConfig">选择站点</Label>
+                <Label htmlFor="apiConfig">选择论坛站点</Label>
                 <Select value={apiConfigId} onValueChange={setApiConfigId}>
                   <SelectTrigger>
                     <SelectValue placeholder="选择站点" />
@@ -131,7 +126,7 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="username">Discourse 用户名</Label>
+              <Label htmlFor="username">论坛用户名</Label>
               <Input
                 id="username"
                 type="text"
@@ -160,7 +155,7 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-sm text-muted-foreground text-center">
-            <p>登录后可使用抽奖和管理功能</p>
+            <p>登录后可创建CDK兑换码</p>
             <p className="mt-1">登录状态保持 7 天</p>
           </div>
         </CardContent>
