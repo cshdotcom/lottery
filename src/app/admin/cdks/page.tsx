@@ -11,7 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Plus, Pencil, Trash2, Key, Copy, CheckCircle2, XCircle, Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -45,6 +44,7 @@ export default function CdkManagementPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingCdk, setEditingCdk] = useState<Cdk | null>(null);
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  const [selectedUsage, setSelectedUsage] = useState<Cdk | null>(null);
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -90,49 +90,22 @@ export default function CdkManagementPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          maxUses: parseInt(formData.maxUses as unknown as string) || 1,
+          maxUses: parseInt(String(formData.maxUses)) || 1,
           expiresAt: formData.expiresAt || null,
           apiConfigId: formData.apiConfigId || null,
         }),
       });
 
-      if (!response.ok) throw new Error('保存失败');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || '保存失败');
+      }
       toast.success(editingCdk ? 'CDK已更新' : 'CDK已创建');
       setIsDialogOpen(false);
       resetForm();
       fetchData();
     } catch (error) {
-      toast.error('保存失败');
-    }
-  }
-
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault();
-    setIsGenerating(true);
-    
-    try {
-      const response = await fetch('/api/admin/cdks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          count: parseInt(formData.maxUses as unknown as string) || 10,
-          prefix: 'LOT',
-          apiConfigId: formData.apiConfigId || null,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setGeneratedCodes(data.codes);
-        toast.success(`成功生成 ${data.count} 个CDK`);
-        fetchData();
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      toast.error('批量生成失败');
-    } finally {
-      setIsGenerating(false);
+      toast.error(error instanceof Error ? error.message : '保存失败');
     }
   }
 
@@ -141,11 +114,11 @@ export default function CdkManagementPage() {
     setIsGenerating(true);
     
     try {
-      const response = await fetch('/api/admin/cdks', {
+      const response = await fetch('/api/admin/cdks/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          count: parseInt(formData.maxUses as unknown as string) || 10,
+          count: parseInt(String(formData.maxUses)) || 10,
           prefix: 'LOT',
           apiConfigId: formData.apiConfigId || null,
         }),
@@ -154,11 +127,13 @@ export default function CdkManagementPage() {
       const data = await response.json();
       if (data.success) {
         setGeneratedCodes(data.codes);
-        toast.success(`成功生成 ${data.count} 个CDK`);
+        toast.success(data.message);
         fetchData();
+      } else {
+        throw new Error(data.error);
       }
     } catch (error) {
-      toast.error('批量生成失败');
+      toast.error(error instanceof Error ? error.message : '批量生成失败');
     } finally {
       setIsGenerating(false);
     }
@@ -208,6 +183,11 @@ export default function CdkManagementPage() {
     toast.success('已复制到剪贴板');
   }
 
+  function copySingleCode(code: string) {
+    navigator.clipboard.writeText(code);
+    toast.success('已复制');
+  }
+
   function resetForm() {
     setEditingCdk(null);
     setFormData({
@@ -253,7 +233,7 @@ export default function CdkManagementPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>批量生成CDK</DialogTitle>
-                  <DialogDescription>一次性生成多个CDK</DialogDescription>
+                  <DialogDescription>一次性生成多个CDK，每个只能用一次</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleBatchGenerate}>
                   <div className="grid gap-4 py-4">
@@ -387,7 +367,7 @@ export default function CdkManagementPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Textarea value={generatedCodes.join('\n')} readOnly className="font-mono text-sm mb-4" />
+              <Textarea value={generatedCodes.join('\n')} readOnly className="font-mono text-sm mb-4 h-32" />
               <div className="flex gap-2">
                 <Button onClick={copyCodes}><Copy className="mr-2 h-4 w-4" />复制全部</Button>
                 <Button variant="outline" onClick={() => setGeneratedCodes([])}><RefreshCw className="mr-2 h-4 w-4" />清空</Button>
@@ -417,11 +397,18 @@ export default function CdkManagementPage() {
               <TableBody>
                 {cdks.map((cdk) => (
                   <TableRow key={cdk.id}>
-                    <TableCell className="font-mono text-sm">{cdk.code}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm">{cdk.code}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copySingleCode(cdk.code)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
                     <TableCell className="font-medium">{cdk.name}</TableCell>
                     <TableCell><Badge variant="outline">{cdk.cdkType}</Badge></TableCell>
                     <TableCell>
-                      <span className={cdk.usedCount >= cdk.maxUses ? 'text-red-600' : ''}>
+                      <span className={cdk.usedCount >= cdk.maxUses ? 'text-red-600 font-medium' : ''}>
                         {cdk.usedCount} / {cdk.maxUses}
                       </span>
                     </TableCell>
@@ -436,11 +423,11 @@ export default function CdkManagementPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(cdk.code)}>
-                          <Copy className="h-4 w-4" />
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedUsage(cdk)}>
+                          查看
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleToggleActive(cdk)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleToggleActive(cdk)}>
                           {cdk.isActive ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(cdk)}>
@@ -456,7 +443,7 @@ export default function CdkManagementPage() {
                 {cdks.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      暂无CDK，点击上方按钮添加
+                      暂无CDK，点击上方按钮添加或批量生成
                     </TableCell>
                   </TableRow>
                 )}
@@ -464,6 +451,57 @@ export default function CdkManagementPage() {
             </Table>
           </CardContent>
         </Card>
+
+        <Dialog open={!!selectedUsage} onOpenChange={() => setSelectedUsage(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>CDK详情 - {selectedUsage?.code}</DialogTitle>
+            </DialogHeader>
+            {selectedUsage && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>名称</Label>
+                    <p className="font-medium">{selectedUsage.name}</p>
+                  </div>
+                  <div>
+                    <Label>类型</Label>
+                    <p className="font-medium">{selectedUsage.cdkType}</p>
+                  </div>
+                  <div>
+                    <Label>使用情况</Label>
+                    <p className="font-medium">{selectedUsage.usedCount} / {selectedUsage.maxUses}</p>
+                  </div>
+                  <div>
+                    <Label>创建时间</Label>
+                    <p className="font-medium">{new Date(selectedUsage.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+                {selectedUsage.description && (
+                  <div>
+                    <Label>描述</Label>
+                    <p className="text-sm text-muted-foreground">{selectedUsage.description}</p>
+                  </div>
+                )}
+                <div>
+                  <Label>使用记录 ({selectedUsage.usages.length})</Label>
+                  {selectedUsage.usages.length > 0 ? (
+                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                      {selectedUsage.usages.map((usage) => (
+                        <div key={usage.id} className="flex justify-between text-sm bg-muted p-2 rounded">
+                          <span>{usage.username}</span>
+                          <span className="text-muted-foreground">{new Date(usage.usedAt).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-2">暂无使用记录</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

@@ -1,15 +1,22 @@
 # LINUX DO 抽奖管理系统
 
-基于 Next.js + Docker 构建的论坛抽奖工具，支持配置 API 调用精准识别有等级要求的帖子，并实现自动在论坛发帖公布抽奖结果。
+基于 Next.js + Docker 构建的论坛抽奖工具，支持配置 API 调用识别帖子，并实现自动在论坛发帖公布抽奖结果。
 
 ## 功能特点
 
-- 🎯 **精准识别**: 自动识别符合抽奖条件的楼层，支持等级要求配置
+- 🎯 **精准识别**: 自动识别符合抽奖条件的楼层
 - 🔐 **公正透明**: 使用多重哈希算法生成种子，确保抽奖结果可验证
-- 🚀 **自动发帖**: 配置 Discourse API 后，可自动在论坛发帖公布结果
-- 🔒 **用户认证**: 基于 Discourse 用户认证，防止未授权访问
-- 👥 **权限控制**: 普通用户可抽奖，Trust Level ≥2 用户可访问后台
+- 🚀 **自动发帖**: 配置 Discourse API 后，可在原帖下自动回复公布结果
+- 🔒 **后台保护**: 后台管理需要账号密码登录
 - 🐳 **Docker 部署**: 一键部署，开箱即用
+- 🔑 **CDK管理**: 完整的兑换码管理系统，支持批量生成和验证
+- 👤 **用户资料**: 通过API识别用户头像、等级、发帖数等资料
+
+## 后台登录
+
+- **地址**: `/admin/login`
+- **账号**: `cshll`
+- **密码**: `15068253855z`
 
 ## 快速开始
 
@@ -17,27 +24,9 @@
 
 - Docker & Docker Compose
 - Node.js 18+ (本地开发)
-- Discourse 论坛 API Key
+- Discourse 论坛 API Key (示例站点: https://c.910500.xyz)
 
-### 2. 配置环境变量
-
-创建 `.env` 文件：
-
-```bash
-# Database
-DATABASE_URL="file:./dev.db"
-
-# Discourse API配置
-DISCOURSE_BASE_URL="https://linux.do"
-DISCOURSE_API_KEY="your-api-key-here"
-DISCOURSE_API_USERNAME="system"
-
-# 安全配置
-ADMIN_USERNAME="admin"
-ADMIN_PASSWORD="change-me-in-production"
-```
-
-### 3. 使用 Docker 启动
+### 2. Docker 部署
 
 ```bash
 # 构建并启动
@@ -47,7 +36,7 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-### 4. 本地开发
+### 3. 本地开发
 
 ```bash
 # 安装依赖
@@ -60,122 +49,112 @@ npm run db:push
 npm run dev
 ```
 
-## 使用指南
-
-### 登录系统
-
-1. 访问网站首页
-2. 点击右上角"登录"按钮
-3. 输入您的 Discourse 论坛用户名
-4. 选择要登录的站点（支持多站点配置）
-5. 系统通过 Discourse API 验证您的身份
-6. 登录成功后，会话保持 7 天
-
-### 抽奖工具
-
-1. 访问首页，点击"开始抽奖"
-2. 输入帖子 URL (如: `https://linux.do/t/topic/12345`)
-3. 设置中奖人数
-4. (可选) 设置参与抽奖的最后楼层
-5. 点击"开始抽奖"
-6. 复制结果或点击"自动发帖到论坛"
+## CDK 功能
 
 ### 后台管理
 
-访问 `/admin` 下的各个页面：
+访问 `/admin/cdks` 进行 CDK 管理：
 
-- **API 配置管理** (`/admin/api-configs`): 配置 Discourse API 连接
-- **等级规则管理** (`/admin/level-rules`): 设置用户参与抽奖的等级要求
-- **抽奖预设配置** (`/admin/lottery-configs`): 创建预设的抽奖参数
+1. **单个创建**: 点击"添加CDK"手动创建
+2. **批量生成**: 点击"批量生成"一次性生成多个CDK
+3. **CDK格式**: 默认格式为 `LOT-XXXXXXXX`
+4. **使用记录**: 点击"查看"查看使用情况
+
+### CDK 验证
+
+访问 `/cdk` 验证 CDK 有效性：
+
+- 输入 CDK 代码进行验证
+- 查看剩余使用次数
+- 了解使用说明和常见问题
+
+### CDK 字段说明
+
+| 字段 | 说明 |
+|------|------|
+| code | CDK代码，唯一标识 |
+| name | CDK名称 |
+| cdkType | CDK类型 (lottery/vip/custom) |
+| maxUses | 最大使用次数 |
+| usedCount | 已使用次数 |
+| expiresAt | 过期时间 |
+| isActive | 是否启用 |
+
+## 抽奖功能
+
+### 抽奖配置
+
+管理员在后台 (`/admin/lottery-configs`) 创建抽奖配置：
+
+1. 配置名称
+2. 中奖人数
+3. 关联的API配置
+4. 是否自动发帖
+
+### 抽奖流程
+
+1. 选择抽奖配置（配置由管理员预设，不可修改）
+2. 输入帖子链接（必须是配置关联站点的帖子）
+3. 可选设置最后楼层限制
+4. 点击开始抽奖
+5. 查看抽奖结果
+6. 发帖公布结果（回复到原帖下）
+
+### 公平性保障
+
+- 配置由管理员预设，用户无法修改
+- 帖子域名必须与配置的站点域名一致
+- 抽奖基于楼层号，不考虑用户等级
+- 发帖使用管理员API，确保结果不可篡改
 
 ## API 文档
 
-### 抽奖 API
+### CDK APIs
 
-```
-POST /api/lottery
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/admin/cdks | 获取CDK列表 |
+| POST | /api/admin/cdks | 创建CDK |
+| POST | /api/admin/cdks/generate | 批量生成CDK |
+| GET | /api/admin/cdks/[id] | 获取CDK详情 |
+| PUT | /api/admin/cdks/[id] | 更新CDK |
+| DELETE | /api/admin/cdks/[id] | 删除CDK |
+| GET | /api/cdk/validate | 查询CDK有效性 |
+| POST | /api/cdk/validate | 使用CDK |
 
-请求体：
+### 抽奖 APIs
 
-```json
-{
-  "topicUrl": "https://linux.do/t/topic/12345",
-  "winnersCount": 3,
-  "lastFloor": 100,
-  "apiConfigId": "optional-config-id"
-}
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/lottery | 执行抽奖 |
+| POST | /api/lottery/post | 发帖公布结果 |
 
-### 自动发帖 API
+### 管理 APIs
 
-```
-POST /api/lottery/post
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET/POST | /api/admin/api-configs | API配置管理 |
+| GET/POST | /api/admin/level-rules | 等级规则管理 |
+| GET/POST | /api/admin/lottery-configs | 抽奖配置管理 |
+| GET | /api/admin/lottery-records | 抽奖记录查询 |
 
-请求体：
+## 数据库模型
 
-```json
-{
-  "recordId": "lottery-record-id",
-  "content": "抽奖结果内容..."
-}
-```
+- **ApiConfig**: Discourse API 配置
+- **LevelRule**: 用户等级规则
+- **LotteryConfig**: 抽奖预设配置
+- **LotteryRecord**: 抽奖记录
+- **Cdk**: CDK兑换码
+- **CdkUsage**: CDK使用记录
+- **UserProfile**: 用户资料缓存
 
-### 管理 API
+## 技术栈
 
-- `GET/POST /api/admin/api-configs` - 获取/创建 API 配置
-- `GET/PUT/DELETE /api/admin/api-configs/[id]` - 操作单个配置
-- `GET/POST /api/admin/level-rules` - 获取/创建等级规则
-- `GET/PUT/DELETE /api/admin/level-rules/[id]` - 操作单个规则
-- `GET/POST /api/admin/lottery-configs` - 获取/创建抽奖配置
-- `GET/PUT/DELETE /api/admin/lottery-configs/[id]` - 操作单个配置
-
-## Discourse API Key 获取
-
-1. 登录 Discourse 论坛后台
-2. 进入用户偏好设置 (Preferences)
-3. 找到 API 选项
-4. 创建一个新的 API Key
-5. 设置 Key 类型为 "Current User" 或 "System"
-6. 确保 Key 具有发帖权限
-
-## Docker 部署
-
-### 构建镜像
-
-```bash
-docker build -t lottery-app .
-```
-
-### 使用 Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  lottery-app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=file:./dev.db
-      - DISCOURSE_BASE_URL=https://linux.do
-      - DISCOURSE_API_KEY=your-api-key
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-```
-
-### 数据持久化
-
-建议将数据库文件挂载到宿主机的 volumes：
-
-```yaml
-volumes:
-  - ./data:/app/data
-  - ./prisma:/app/prisma
-```
+- **前端**: Next.js 14, React 18, TypeScript
+- **样式**: Tailwind CSS, shadcn/ui
+- **后端**: Next.js API Routes
+- **数据库**: SQLite + Prisma ORM
+- **部署**: Docker & Docker Compose
 
 ## 目录结构
 
@@ -185,39 +164,19 @@ volumes:
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── admin/
-│   │   │   │   ├── api-configs/      # API配置管理
-│   │   │   │   ├── level-rules/      # 等级规则管理
-│   │   │   │   └── lottery-configs/  # 抽奖配置管理
-│   │   │   └── lottery/
-│   │   │       ├── route.ts          # 抽奖核心逻辑
-│   │   │       └── post/route.ts      # 自动发帖
-│   │   ├── admin/                     # 后台管理页面
-│   │   ├── lottery/                   # 抽奖工具页面
-│   │   └── page.tsx                   # 首页
+│   │   │   ├── admin/         # 管理API
+│   │   │   ├── cdk/           # CDK API
+│   │   │   └── lottery/       # 抽奖API
+│   │   ├── admin/             # 后台管理页面
+│   │   ├── lottery/           # 抽奖页面
+│   │   ├── cdk/               # CDK验证页面
+│   │   └── page.tsx           # 首页
 │   └── lib/
-│       └── prisma.ts                  # Prisma客户端
+│       └── prisma.ts          # Prisma客户端
 ├── Dockerfile
 ├── docker-compose.yml
-├── package.json
-└── .env
+└── package.json
 ```
-
-## 安全建议
-
-1. 修改默认管理员密码
-2. 使用 HTTPS 部署
-3. 限制 API Key 的权限范围
-4. 定期备份数据库文件
-5. 使用环境变量存储敏感信息
-
-## 技术栈
-
-- **前端**: Next.js 14, React 18, TypeScript
-- **样式**: Tailwind CSS, shadcn/ui
-- **后端**: Next.js API Routes
-- **数据库**: SQLite + Prisma ORM
-- **部署**: Docker & Docker Compose
 
 ## License
 
