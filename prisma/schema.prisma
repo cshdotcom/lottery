@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model UserSession {
+  id          String   @id @default(cuid())
+  username    String
+  trustLevel  Int      @default(0)
+  avatarUrl   String?
+  browserId   String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([browserId])
+}
+
+model ApiConfig {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  baseUrl      String
+  apiKey       String
+  category      String   @default("discourse")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lotteryConfigs  LotteryConfig[]
+  lotteryRecords  LotteryRecord[]
+  cdks             Cdk[]
+  userProfiles     UserProfile[]
+}
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  username     String
+  discourseId   String?
+  trustLevel   Int      @default(0)
+  avatarUrl    String?
+  bio          String?
+  joinedAt     DateTime?
+  postCount    Int      @default(0)
+  apiConfigId  String?
+  lastChecked  DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  apiConfig    ApiConfig? @relation(fields: [apiConfigId], references: [id])
+  cdkUsages   CdkUsage[]
+  lotteryRecords LotteryRecord[]
+
+  @@unique([username, apiConfigId])
+  @@index([username])
+}
+
+model LevelRule {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  minLevel     Int      @default(0)
+  category     String   @default("trust_level")
+  isActive     Boolean  @default(true)
+  priority     Int      @default(0)
+  requireAvatar Boolean @default(false)
+  requireBio    Boolean @default(false)
+  requirePostCount Int  @default(0)
+  requireJoinedDays  Int @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lotteryConfigs LotteryConfig[]
+}
+
+model LotteryConfig {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  winnersCount    Int      @default(1)
+  requireLevel    Boolean  @default(false)
+  requireLevelMin Int      @default(0)
+  autoPost        Boolean  @default(false)
+  postCategory    String   @default("announcements")
+  apiConfigId     String?
+  levelRuleId     String?
+  requireCdk      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  apiConfig   ApiConfig?   @relation(fields: [apiConfigId], references: [id])
+  levelRule   LevelRule?  @relation(fields: [levelRuleId], references: [id])
+  lotteryRecords LotteryRecord[]
+}
+
+model LotteryRecord {
+  id               String   @id @default(cuid())
+  topicId          String
+  topicUrl         String
+  topicTitle       String
+  author           String
+  winnersCount     Int
+  winners          String
+  seed             String
+  totalParticipants Int
+  apiConfigId      String?
+  userProfileId    String?
+  posted           Boolean  @default(false)
+  postUrl          String?
+  createdAt        DateTime @default(now())
+
+  apiConfig    ApiConfig?    @relation(fields: [apiConfigId], references: [id])
+  userProfile  UserProfile?  @relation(fields: [userProfileId], references: [id])
+}
+
+model Cdk {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  description  String?
+  cdkType      String   @default("lottery")
+  maxUses      Int      @default(1)
+  usedCount    Int      @default(0)
+  expiresAt    DateTime?
+  isActive     Boolean  @default(true)
+  apiConfigId  String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  apiConfig    ApiConfig? @relation(fields: [apiConfigId], references: [id])
+  usages       CdkUsage[]
+
+  @@index([code])
+}
+
+model CdkUsage {
+  id          String   @id @default(cuid())
+  cdkId       String
+  username    String
+  userProfileId String?
+  usedAt      DateTime @default(now())
+
+  cdk         Cdk      @relation(fields: [cdkId], references: [id])
+  userProfile UserProfile? @relation(fields: [userProfileId], references: [id])
+
+  @@index([cdkId])
+}
