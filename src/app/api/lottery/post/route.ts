@@ -4,18 +4,20 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { recordId, content } = body;
+    const { recordId } = body;
     
-    if (!recordId || !content) {
+    if (!recordId) {
       return NextResponse.json(
-        { error: '缺少必填字段' },
+        { error: '缺少抽奖记录ID' },
         { status: 400 }
       );
     }
     
     const record = await prisma.lotteryRecord.findUnique({
       where: { id: recordId },
-      include: { apiConfig: true },
+      include: { 
+        apiConfig: true,
+      },
     });
     
     if (!record) {
@@ -25,21 +27,60 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const apiConfig = record.apiConfig;
-    if (!apiConfig) {
+    if (!record.apiConfig) {
       return NextResponse.json(
         { error: '未配置API，无法自动发帖' },
         { status: 400 }
       );
     }
+
+    if (record.posted) {
+      return NextResponse.json(
+        { error: '此抽奖结果已发帖' },
+        { status: 400 }
+      );
+    }
+
+    const apiConfig = record.apiConfig;
     
+    const winners = record.winners.split(',').map((w, i) => {
+      const [floor, username] = w.split(':');
+      return { rank: i + 1, floor: parseInt(floor), username };
+    });
+
+    const postContent = `🎉 **抽奖结果公布**
+
+恭喜以下 ${record.winnersCount} 位幸运用户！
+
+${winners.map(w => `${w.rank}. **${w.username}** - ${w.floor}楼`).join('\n')}
+
+---
+
+**抽奖信息：**
+- 帖子链接: ${record.topicUrl}
+- 参与楼层: ${record.totalParticipants} 楼
+- 中奖人数: ${record.winnersCount} 人
+- 最终种子: \`${record.seed}\`
+
+抽奖时间: ${new Date(record.createdAt).toLocaleString('zh-CN')}
+
+恭喜所有中奖用户！ 🎊`;
+
+    const topicIdMatch = record.topicUrl.match(/\/t\/[^/]+\/(\d+)/);
+    const topicId = topicIdMatch ? topicIdMatch[1] : null;
+
+    if (!topicId) {
+      return NextResponse.json(
+        { error: '无法解析帖子ID' },
+        { status: 400 }
+      );
+    }
+
     const postUrl = `${apiConfig.baseUrl}/posts.json`;
     
     const postData = {
-      title: `【抽奖结果】${record.topicTitle}`,
-      raw: content,
-      category: record.apiConfigId ? undefined : 1,
-      reply_to_post_number: null,
+      topic_id: parseInt(topicId),
+      raw: postContent,
     };
     
     const response = await fetch(postUrl, {
@@ -59,17 +100,19 @@ export async function POST(request: NextRequest) {
     
     const postResult = await response.json();
     
+    const fullPostUrl = `${apiConfig.baseUrl}/t/${record.topicId}/${postResult.post_number}`;
+    
     await prisma.lotteryRecord.update({
       where: { id: recordId },
       data: {
         posted: true,
-        postUrl: `${apiConfig.baseUrl}/t/${postResult.topic_slug}/${postResult.topic_id}/${postResult.post_number}`,
+        postUrl: fullPostUrl,
       },
     });
     
     return NextResponse.json({
       success: true,
-      postUrl: `${apiConfig.baseUrl}/t/${postResult.topic_slug}/${postResult.topic_id}/${postResult.post_number}`,
+      postUrl: fullPostUrl,
       postNumber: postResult.post_number,
     });
   } catch (error) {
