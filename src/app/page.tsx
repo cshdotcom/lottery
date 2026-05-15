@@ -1,18 +1,29 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Gift, Settings, Shield, History, ChevronRight } from 'lucide-react';
+import { AdminNav } from '@/components/admin-nav';
+import { Gift, Settings, Shield, History, Key, User, ChevronRight } from 'lucide-react';
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+        <div className="container flex h-14 items-center justify-between">
+          <Link href="/" className="flex items-center space-x-2">
+            <Gift className="h-6 w-6 text-primary" />
+            <span className="font-bold">LINUX DO 抽奖系统</span>
+          </Link>
+          <AdminNav />
+        </div>
+      </header>
+
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             LINUX DO 抽奖管理系统
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            公正透明的论坛抽奖工具，支持自动识别等级要求，自动发布抽奖结果
+            公正透明的论坛抽奖工具，支持配置 API 调用精准识别有等级要求的帖子
           </p>
         </div>
 
@@ -57,22 +68,28 @@ export default function HomePage() {
                 配置Discourse API连接，管理用户等级规则，设置自动发帖参数。
               </p>
               <div className="space-y-2">
-                <Link href="/admin/api-configs" className="block">
+                <Link href="/admin/login" className="block">
                   <Button variant="outline" className="w-full justify-start">
-                    <Gift className="mr-2 h-4 w-4" />
+                    <Key className="mr-2 h-4 w-4" />
                     API 配置管理
                   </Button>
                 </Link>
-                <Link href="/admin/level-rules" className="block">
+                <Link href="/admin/login" className="block">
                   <Button variant="outline" className="w-full justify-start">
                     <Shield className="mr-2 h-4 w-4" />
                     等级规则管理
                   </Button>
                 </Link>
-                <Link href="/admin/lottery-configs" className="block">
+                <Link href="/admin/login" className="block">
                   <Button variant="outline" className="w-full justify-start">
                     <Settings className="mr-2 h-4 w-4" />
                     抽奖预设配置
+                  </Button>
+                </Link>
+                <Link href="/admin/login" className="block">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Key className="mr-2 h-4 w-4" />
+                    CDK兑换码管理
                   </Button>
                 </Link>
               </div>
