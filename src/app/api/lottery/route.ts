@@ -2,6 +2,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 
+const RATE_LIMIT_WINDOW = 60 * 1000;
+const RATE_LIMIT_MAX = 10;
+
+const requestCounts = new Map<string, { count: number; timestamp: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = requestCounts.get(ip);
+  
+  if (!record || now - record.timestamp > RATE_LIMIT_WINDOW) {
+    requestCounts.set(ip, { count: 1, timestamp: now });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
+function validateTopicUrl(url: string, allowedDomain: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    const domainObj = new URL(allowedDomain);
+    return urlObj.hostname === domainObj.hostname;
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeInput(input: string): string {
+  return input.trim().replace(/[<>]/g, '');
+}
+
 async function fetchTopicInfo(topicUrl: string, apiConfig: { baseUrl: string; apiKey: string }) {
   const topicIdMatch = topicUrl.match(/\/t\/[^/]+\/(\d+)/);
   if (!topicIdMatch) {
@@ -11,68 +47,91 @@ async function fetchTopicInfo(topicUrl: string, apiConfig: { baseUrl: string; ap
   const topicId = topicIdMatch[1];
   const jsonUrl = `${apiConfig.baseUrl}/t/${topicId}.json`;
   
-  const response = await fetch(jsonUrl, {
-    headers: {
-      'Api-Key': apiConfig.apiKey,
-      'Api-Username': 'system',
-      'Content-Type': 'application/json',
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   
-  if (!response.ok) {
-    throw new Error(`获取主题信息失败: ${response.status}`);
+  try {
+    const response = await fetch(jsonUrl, {
+      headers: {
+        'Api-Key': apiConfig.apiKey,
+        'Api-Username': 'system',
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeout);
+    
+    if (!response.ok) {
+      throw new Error(`获取主题信息失败: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    return {
+      topicId,
+      title: sanitizeInput(data.title || '未知标题'),
+      createdAt: data.created_at,
+      createdBy: sanitizeInput(data.details?.created_by?.username || 'unknown'),
+      postsCount: data.posts_count || 0,
+      baseUrl: apiConfig.baseUrl,
+    };
+  } catch (error) {
+    clearTimeout(timeout);
+    throw error;
   }
-  
-  const data = await response.json();
-  
-  return {
-    topicId,
-    title: data.title,
-    createdAt: data.created_at,
-    createdBy: data.details?.created_by?.username || 'unknown',
-    postsCount: data.posts_count || 0,
-    baseUrl: apiConfig.baseUrl,
-  };
 }
 
 async function fetchAllPosts(topicId: string, apiConfig: { baseUrl: string; apiKey: string }) {
   const allPosts: Array<{ post_number: number; username: string; created_at: string }> = [];
   let page = 0;
   const perPage = 30;
+  const maxPages = 100;
   
-  while (true) {
+  while (page < maxPages) {
     const postsUrl = `${apiConfig.baseUrl}/t/${topicId}/posts.json?offset=${page * perPage}`;
     
-    const response = await fetch(postsUrl, {
-      headers: {
-        'Api-Key': apiConfig.apiKey,
-        'Api-Username': 'system',
-        'Content-Type': 'application/json',
-      },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
     
-    if (!response.ok) {
-      throw new Error(`获取帖子回复失败: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const posts = data.post_stream?.posts || [];
-    
-    if (posts.length === 0) break;
-    
-    for (const post of posts) {
-      if (post.post_number > 1) {
-        allPosts.push({
-          post_number: post.post_number,
-          username: post.username,
-          created_at: post.created_at,
-        });
+    try {
+      const response = await fetch(postsUrl, {
+        headers: {
+          'Api-Key': apiConfig.apiKey,
+          'Api-Username': 'system',
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeout);
+      
+      if (!response.ok) {
+        throw new Error(`获取帖子回复失败: ${response.status}`);
       }
+      
+      const data = await response.json();
+      const posts = data.post_stream?.posts || [];
+      
+      if (posts.length === 0) break;
+      
+      for (const post of posts) {
+        if (post.post_number > 1) {
+          allPosts.push({
+            post_number: post.post_number,
+            username: sanitizeInput(post.username),
+            created_at: post.created_at,
+          });
+        }
+      }
+      
+      page++;
+      
+      if (posts.length < perPage) break;
+    } catch (error) {
+      clearTimeout(timeout);
+      throw error;
     }
-    
-    page++;
-    
-    if (posts.length < perPage) break;
   }
   
   return allPosts;
@@ -115,16 +174,27 @@ function generateWinners(seed: string, posts: any[], winnersCount: number): any[
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: '请求过于频繁，请稍后再试' },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { topicUrl, configId, lastFloor } = body;
     
-    if (!topicUrl) {
+    if (!topicUrl || typeof topicUrl !== 'string') {
       return NextResponse.json(
         { error: '缺少帖子链接' },
         { status: 400 }
       );
     }
+
+    const cleanTopicUrl = sanitizeInput(topicUrl);
 
     const config = await prisma.lotteryConfig.findUnique({
       where: { id: configId },
@@ -140,27 +210,17 @@ export async function POST(request: NextRequest) {
 
     const apiConfig = config.apiConfig;
     
-    try {
-      const topicUrlObj = new URL(topicUrl);
-      const configUrlObj = new URL(apiConfig.baseUrl);
-      
-      if (topicUrlObj.hostname !== configUrlObj.hostname) {
-        return NextResponse.json(
-          { error: `帖子域名不匹配，请使用 ${configUrlObj.hostname} 的帖子` },
-          { status: 400 }
-        );
-      }
-    } catch (error) {
+    if (!validateTopicUrl(cleanTopicUrl, apiConfig.baseUrl)) {
       return NextResponse.json(
-        { error: '帖子链接格式不正确' },
+        { error: `帖子域名不匹配，请使用 ${apiConfig.baseUrl} 的帖子` },
         { status: 400 }
       );
     }
 
-    const topicInfo = await fetchTopicInfo(topicUrl, apiConfig);
+    const topicInfo = await fetchTopicInfo(cleanTopicUrl, apiConfig);
     let allPosts = await fetchAllPosts(topicInfo.topicId, apiConfig);
 
-    if (lastFloor && lastFloor > 0) {
+    if (lastFloor && typeof lastFloor === 'number' && lastFloor > 0) {
       allPosts = allPosts.filter(p => p.post_number <= lastFloor);
     }
 
@@ -178,7 +238,7 @@ export async function POST(request: NextRequest) {
     const record = await prisma.lotteryRecord.create({
       data: {
         topicId: topicInfo.topicId,
-        topicUrl: topicUrl,
+        topicUrl: cleanTopicUrl,
         topicTitle: topicInfo.title,
         author: topicInfo.createdBy,
         winnersCount: winnersCount,
@@ -195,7 +255,7 @@ export async function POST(request: NextRequest) {
       record: {
         id: record.id,
         topicTitle: topicInfo.title,
-        topicUrl: topicUrl,
+        topicUrl: cleanTopicUrl,
         author: topicInfo.createdBy,
         winners: winners.map((w, i) => ({
           rank: i + 1,
@@ -214,8 +274,22 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('抽奖失败:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('aborted')) {
+        return NextResponse.json(
+          { error: '请求超时，请稍后再试' },
+          { status: 504 }
+        );
+      }
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '抽奖失败' },
+      { error: '抽奖失败，请稍后再试' },
       { status: 500 }
     );
   }

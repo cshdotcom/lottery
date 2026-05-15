@@ -1,6 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+async function pinTopic(topicId: number, apiConfig: { baseUrl: string; apiKey: string }) {
+  try {
+    const pinUrl = `${apiConfig.baseUrl}/t/${topicId}/status.json`;
+    const response = await fetch(pinUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Api-Key': apiConfig.apiKey,
+        'Api-Username': 'system',
+      },
+      body: JSON.stringify({
+        status: 'pinned',
+        enabled: true,
+      }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('置顶失败:', error);
+    return false;
+  }
+}
+
+async function makePostWiki(postNumber: number, topicId: number, apiConfig: { baseUrl: string; apiKey: string }) {
+  try {
+    const wikiUrl = `${apiConfig.baseUrl}/posts/${postNumber}/wiki.json`;
+    const response = await fetch(wikiUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Api-Key': apiConfig.apiKey,
+        'Api-Username': 'system',
+      },
+      body: JSON.stringify({
+        wiki: true,
+      }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('设为Wiki失败:', error);
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -42,44 +85,38 @@ export async function POST(request: NextRequest) {
     }
 
     const apiConfig = record.apiConfig;
+    const topicId = parseInt(record.topicId);
     
     const winners = record.winners.split(',').map((w, i) => {
       const [floor, username] = w.split(':');
       return { rank: i + 1, floor: parseInt(floor), username };
     });
 
-    const postContent = `🎉 **抽奖结果公布**
-
-恭喜以下 ${record.winnersCount} 位幸运用户！
-
-${winners.map(w => `${w.rank}. **${w.username}** - ${w.floor}楼`).join('\n')}
+    const postContent = `🎉 **【抽奖结果公布】**
 
 ---
 
-**抽奖信息：**
-- 帖子链接: ${record.topicUrl}
-- 参与楼层: ${record.totalParticipants} 楼
-- 中奖人数: ${record.winnersCount} 人
-- 最终种子: \`${record.seed}\`
+**恭喜以下 ${record.winnersCount} 位幸运用户！**
 
-抽奖时间: ${new Date(record.createdAt).toLocaleString('zh-CN')}
+${winners.map(w => `${w.rank}. **@${w.username}** - ${w.floor}楼`).join('\n')}
 
-恭喜所有中奖用户！ 🎊`;
+---
 
-    const topicIdMatch = record.topicUrl.match(/\/t\/[^/]+\/(\d+)/);
-    const topicId = topicIdMatch ? topicIdMatch[1] : null;
+**📋 抽奖信息**
+- 📌 原帖: ${record.topicUrl}
+- 👥 参与楼层: ${record.totalParticipants} 楼
+- 🎯 中奖人数: ${record.winnersCount} 人
+- 🔐 最终种子: \`${record.seed}\`
+- ⏰ 抽奖时间: ${new Date(record.createdAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
 
-    if (!topicId) {
-      return NextResponse.json(
-        { error: '无法解析帖子ID' },
-        { status: 400 }
-      );
-    }
+---
+
+*本结果由系统自动生成，公开透明可验证* 🎊`;
 
     const postUrl = `${apiConfig.baseUrl}/posts.json`;
     
     const postData = {
-      topic_id: parseInt(topicId),
+      topic_id: topicId,
       raw: postContent,
     };
     
@@ -114,6 +151,7 @@ ${winners.map(w => `${w.rank}. **${w.username}** - ${w.floor}楼`).join('\n')}
       success: true,
       postUrl: fullPostUrl,
       postNumber: postResult.post_number,
+      message: '已在原帖下回复',
     });
   } catch (error) {
     console.error('自动发帖失败:', error);
