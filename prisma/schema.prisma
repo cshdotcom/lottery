@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ApiConfig {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  baseUrl     String
+  apiKey      String
+  category    String   @default("discourse")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  lotteryConfigs  LotteryConfig[]
+  lotteryRecords  LotteryRecord[]
+}
+
+model LevelRule {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  minLevel    Int      @default(1)
+  category    String   @default("trust_level")
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LotteryConfig {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  winnersCount    Int      @default(1)
+  requireLevel    Boolean  @default(false)
+  requireLevelMin Int      @default(1)
+  autoPost        Boolean  @default(false)
+  postCategory    String   @default("announcements")
+  apiConfigId     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  apiConfig       ApiConfig?  @relation(fields: [apiConfigId], references: [id])
+}
+
+model LotteryRecord {
+  id                String   @id @default(cuid())
+  topicId           String
+  topicUrl          String
+  topicTitle        String
+  author            String
+  winnersCount      Int
+  winners           String
+  seed              String
+  totalParticipants Int
+  apiConfigId       String?
+  posted            Boolean  @default(false)
+  postUrl           String?
+  createdAt         DateTime @default(now())
+  
+  apiConfig         ApiConfig? @relation(fields: [apiConfigId], references: [id])
+}
