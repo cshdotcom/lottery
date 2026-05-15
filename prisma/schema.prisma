@@ -7,6 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model UserSession {
+  id          String   @id @default(cuid())
+  username    String
+  trustLevel  Int      @default(0)
+  avatarUrl   String?
+  browserId   String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([browserId])
+}
+
 model ApiConfig {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -17,16 +30,16 @@ model ApiConfig {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  lotteryConfigs  LotteryConfig[]
-  lotteryRecords  LotteryRecord[]
+
+  lotteryConfigs LotteryConfig[]
+  lotteryRecords LotteryRecord[]
 }
 
 model LevelRule {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  minLevel    Int      @default(1)
+  minLevel    Int      @default(0)
   category    String   @default("trust_level")
   isActive    Boolean  @default(true)
   priority    Int      @default(0)
@@ -40,30 +53,30 @@ model LotteryConfig {
   description     String?
   winnersCount    Int      @default(1)
   requireLevel    Boolean  @default(false)
-  requireLevelMin Int      @default(1)
+  requireLevelMin Int      @default(0)
   autoPost        Boolean  @default(false)
   postCategory    String   @default("announcements")
   apiConfigId     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   apiConfig       ApiConfig?  @relation(fields: [apiConfigId], references: [id])
 }
 
 model LotteryRecord {
-  id                String   @id @default(cuid())
-  topicId           String
-  topicUrl          String
-  topicTitle        String
-  author            String
-  winnersCount      Int
-  winners           String
-  seed              String
+  id              String   @id @default(cuid())
+  topicId         String
+  topicUrl        String
+  topicTitle      String
+  author          String
+  winnersCount    Int
+  winners         String
+  seed            String
   totalParticipants Int
-  apiConfigId       String?
-  posted            Boolean  @default(false)
-  postUrl           String?
-  createdAt         DateTime @default(now())
-  
-  apiConfig         ApiConfig? @relation(fields: [apiConfigId], references: [id])
+  apiConfigId     String?
+  posted          Boolean  @default(false)
+  postUrl         String?
+  createdAt       DateTime @default(now())
+
+  apiConfig       ApiConfig? @relation(fields: [apiConfigId], references: [id])
 }
